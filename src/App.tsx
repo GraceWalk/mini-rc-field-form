@@ -1,12 +1,11 @@
-import Form, { Field } from "./rc-field-form";
+import Form, { useForm, Field } from "./rc-field-form";
 import Input from "./rc-field-form/Input";
-import "./App.css";
 
 const nameRules = { required: true, message: "请输入姓名！" };
 const passwordRules = { required: true, message: "请输入密码！" };
 
 export default () => {
-  const [form] = Form.useForm();
+  const [form] = useForm();
   const onFinish = (formData: any) => {
     console.log("onFinish: ", formData);
   };
@@ -17,14 +16,17 @@ export default () => {
   return (
     <Form
       form={form}
-      preserve={false}
-      onFinish={onFinish}
-      onFinishFailed={onFinishFailed}
+      // preserve={false}
+      // onFinish={onFinish}
+      // onFinishFailed={onFinishFailed}
     >
       <Field name="name" rules={[nameRules]}>
         <Input placeholder="Username" />
       </Field>
-      <Field dependencies={["name"]}>
+      <Field name="name1" rules={[nameRules]}>
+        <Input placeholder="Username1" />
+      </Field>
+      {/* <Field dependencies={["name"]}>
         {() => {
           return form.getFieldValue("name") === "1" ? (
             <Field name="password" rules={[passwordRules]}>
@@ -43,8 +45,8 @@ export default () => {
             </Field>
           ) : null;
         }}
-      </Field>
-      <button onClick={() => form.submit()}>submit</button>
+      </Field> */}
+      {/* <button onClick={() => form.submit()}>submit</button> */}
     </Form>
   );
 };
