@@ -1,11 +1,15 @@
 import { useRef } from "react";
 import {
   FieldEntity,
+  FieldError,
   FormInstance,
   NamePath,
+  RuleError,
   Store,
   StoreValue,
+  ValidateOptions,
 } from "./interface";
+import { allPromiseFinish } from "./utils/asyncUtil";
 
 interface UpdateAction {
   type: "updateValue";
@@ -25,15 +29,15 @@ interface ValueUpdateInfo {
   type: "valueUpdate";
 }
 
-export type NotifyInfo = ValueUpdateInfo;
+interface ValidateFinishInfo {
+  type: "validateFinish";
+}
+
+export type NotifyInfo = ValueUpdateInfo | ValidateFinishInfo;
 
 export type ValuedNotifyInfo = NotifyInfo & {
   store: Store;
 };
-
-export interface ValidateOptions {
-  triggerName?: string;
-}
 
 class FormStore {
   private store: Store = {};
@@ -79,7 +83,7 @@ class FormStore {
 
   private notifyObservers = (
     prevStore: Store,
-    name: NamePath,
+    name: NamePath[],
     info: NotifyInfo
   ) => {
     const mergedInfo: ValuedNotifyInfo = {
@@ -99,6 +103,8 @@ class FormStore {
         break;
       }
       case "validateField": {
+        const { namePath, triggerName } = action;
+        this.validateFields(namePath, { triggerName });
         break;
       }
       default:
@@ -113,10 +119,80 @@ class FormStore {
       [name]: value, // 这里要注意 key 值是 [name] 而不是 'name'
     });
     // 2. 触发对应组件的更新
-    this.notifyObservers(prevStore, name, {
+    this.notifyObservers(prevStore, [name], {
       type: "valueUpdate",
     });
   };
+
+  private validateFields = (name?: NamePath, options?: ValidateOptions) => {
+    const promiseList: Promise<FieldError>[] = [];
+
+    this.getFieldEntities().forEach((field) => {
+      // 1. 如果该 field 没有定义 rules，直接跳过
+      if (!field.props.rules || !field.props.rules.length) {
+        return;
+      }
+
+      // 2. 如果触发校验的 field 不是当前 field，直接跳过
+      if (name !== field.props.name) {
+        return;
+      }
+
+      // 3. 调用 field 自身的方法进行校验，返回一个 promise
+      const promise = field.validateRules();
+
+      // 4. 将 promise 存放到 promiseList 中
+      promiseList.push(
+        promise
+          .then<any, RuleError>(() => {
+            return { name, errors: [], warnings: [] };
+          })
+          .catch((ruleErrors: RuleError[]) => {
+            const mergedErrors: string[] = [];
+            const mergedWarnings: string[] = [];
+
+            ruleErrors.forEach(({ rule: { warningOnly }, errors }) => {
+              if (warningOnly) {
+                mergedWarnings.push(...errors);
+              } else {
+                mergedErrors.push(...errors);
+              }
+            });
+
+            if (mergedErrors.length) {
+              return Promise.reject({
+                name,
+                errors: mergedErrors,
+                warnings: mergedWarnings,
+              });
+            }
+
+            return {
+              name,
+              errors: mergedErrors,
+              warnings: mergedWarnings,
+            };
+          })
+      );
+    });
+
+    // 5. 这一步很关键，allPromiseFinish 返回一个新的 Promise ，等待 promiseList 中的所有 promise 都完成
+    const summaryPromise = allPromiseFinish(promiseList);
+    // Notify fields with rule that validate has finished and need update
+    summaryPromise
+      .catch((results) => results)
+      .then((results: FieldError[]) => {
+        console.log("validateResults---", results);
+        // 获取到校验失败的 fields 的错误信息
+        const resultNamePathList: NamePath[] = results.map(({ name }) => name);
+        // 6. 通知这些 fields 更新
+        this.notifyObservers(this.store, resultNamePathList, {
+          type: "validateFinish",
+        });
+      });
+  };
+
+  private submit = () => {};
 }
 
 export default function useForm(formInstance?: FormInstance) {
