@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { ReducerAction, ValuedNotifyInfo } from "./useForm";
 
 export type InternalNamePath = (string | number)[];
-export type NamePath = string | number | InternalNamePath;
+export type NamePath = string | number;
 
 export type StoreValue = any;
 export type Store = Record<string, StoreValue>;

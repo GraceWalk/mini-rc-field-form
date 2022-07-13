@@ -3,6 +3,7 @@ import FieldContext from "./FieldContext";
 import {
   FieldEntity,
   FormInstance,
+  NamePath,
   Rule,
   RuleError,
   RuleObject,
@@ -15,6 +16,7 @@ interface InternalFieldProps {
   name: string;
   fieldContext: FormInstance;
   rules?: any[];
+  dependencies?: NamePath[];
 }
 
 interface ChildProps {
@@ -75,6 +77,19 @@ class Field extends React.Component<InternalFieldProps> {
       namePath && namePath.some((name) => name === this.props.name);
 
     switch (info.type) {
+      case "dependenciesUpdate": {
+        const { dependencies } = this.props;
+
+        if (dependencies) {
+          const dependenciesMatch = namePath.some((name) =>
+            dependencies.includes(name)
+          );
+          if (dependenciesMatch) {
+            this.reRender();
+            return;
+          }
+        }
+      }
       default:
         if (namePathMatch) {
           this.reRender();
@@ -149,7 +164,11 @@ class Field extends React.Component<InternalFieldProps> {
 
   public render() {
     const { children } = this.props;
-    // clone 子元素，注入 value 和 onChange 事件 (这里目前只考虑正常情况)
+
+    if (typeof children === "function") {
+      return (children as Function)();
+    }
+
     const returnChild = React.cloneElement(
       children as React.ReactElement,
       this.getControlled((children as React.ReactElement).props)

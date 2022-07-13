@@ -33,7 +33,14 @@ interface ValidateFinishInfo {
   type: "validateFinish";
 }
 
-export type NotifyInfo = ValueUpdateInfo | ValidateFinishInfo;
+interface DependenciesUpdateInfo {
+  type: "dependenciesUpdate";
+}
+
+export type NotifyInfo =
+  | ValueUpdateInfo
+  | ValidateFinishInfo
+  | DependenciesUpdateInfo;
 
 export type ValuedNotifyInfo = NotifyInfo & {
   store: Store;
@@ -121,6 +128,10 @@ class FormStore {
     // 2. 触发对应组件的更新
     this.notifyObservers(prevStore, [name], {
       type: "valueUpdate",
+    });
+    // 3. 触发依赖项更新
+    this.notifyObservers(prevStore, [name], {
+      type: "dependenciesUpdate",
     });
   };
 

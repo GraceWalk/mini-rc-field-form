@@ -6,12 +6,6 @@ const passwordRules = { required: true, message: "请输入密码！" };
 
 export default () => {
   const [form] = useForm();
-  const onFinish = (formData: any) => {
-    console.log("onFinish: ", formData);
-  };
-  const onFinishFailed = (err: any) => {
-    console.log("onFinishFailed: ", err);
-  };
 
   return (
     <Form
@@ -23,10 +17,7 @@ export default () => {
       <Field name="name" rules={[nameRules]}>
         <Input placeholder="Username" />
       </Field>
-      <Field name="name1" rules={[nameRules]}>
-        <Input placeholder="Username1" />
-      </Field>
-      {/* <Field dependencies={["name"]}>
+      <Field dependencies={["name"]}>
         {() => {
           return form.getFieldValue("name") === "1" ? (
             <Field name="password" rules={[passwordRules]}>
@@ -45,7 +36,7 @@ export default () => {
             </Field>
           ) : null;
         }}
-      </Field> */}
+      </Field>
       {/* <button onClick={() => form.submit()}>submit</button> */}
     </Form>
   );
