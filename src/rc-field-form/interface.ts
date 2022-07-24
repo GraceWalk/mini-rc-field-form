@@ -1,5 +1,5 @@
-import type { ReactElement } from 'react';
-import { ReducerAction, ValuedNotifyInfo } from "./useForm";
+import type { ReactElement } from "react";
+import { Callbacks, ReducerAction, ValuedNotifyInfo } from "./useForm";
 
 export type InternalNamePath = (string | number)[];
 export type NamePath = string | number;
@@ -21,7 +21,9 @@ export interface FormInstance {
   setFieldValue: (name: NamePath, value: any) => void;
   setFieldsValue: (values: any) => void;
   dispatch: (action: ReducerAction) => void;
-  registerField: (entity: FieldEntity) => void;
+  registerField: (entity: FieldEntity) => () => void;
+  setCallbacks: (callbacks: Callbacks) => void;
+  submit: () => void;
 }
 
 export interface ValidateErrorEntity {
@@ -40,30 +42,30 @@ export interface FieldEntity {
   onStoreChange: (
     store: Store,
     namePathList: NamePath[],
-    info: ValuedNotifyInfo,
+    info: ValuedNotifyInfo
   ) => void;
   validateRules: (options?: ValidateOptions) => Promise<RuleError[]>;
 }
 
 export type RuleType =
-  | 'string'
-  | 'number'
-  | 'boolean'
-  | 'method'
-  | 'regexp'
-  | 'integer'
-  | 'float'
-  | 'object'
-  | 'enum'
-  | 'date'
-  | 'url'
-  | 'hex'
-  | 'email';
+  | "string"
+  | "number"
+  | "boolean"
+  | "method"
+  | "regexp"
+  | "integer"
+  | "float"
+  | "object"
+  | "enum"
+  | "date"
+  | "url"
+  | "hex"
+  | "email";
 
 type Validator = (
   rule: RuleObject,
   value: StoreValue,
-  callback: (error?: string) => void,
+  callback: (error?: string) => void
 ) => Promise<void | any> | void;
 
 export interface ValidatorRule {
@@ -91,8 +93,8 @@ interface BaseRule {
 
 type AggregationRule = BaseRule & Partial<ValidatorRule>;
 
-interface ArrayRule extends Omit<AggregationRule, 'type'> {
-  type: 'array';
+interface ArrayRule extends Omit<AggregationRule, "type"> {
+  type: "array";
   defaultField?: RuleObject;
 }
 

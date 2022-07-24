@@ -28,12 +28,19 @@ class Field extends React.Component<InternalFieldProps> {
   private mounted = false;
   private errors: string[] = [];
   private warnings: string[] = [];
+  private cancelRegisterFunc: (() => void) | null = null;
 
   componentDidMount() {
     this.mounted = true;
     const { fieldContext } = this.props;
     const { registerField } = fieldContext;
-    registerField(this);
+    // 在 store 中注册 filed 和销毁回调方法
+    this.cancelRegisterFunc = registerField(this);
+  }
+
+  // 在组件销毁之前，在 store 中销毁
+  componentWillUnmount() {
+    this.cancelRegisterFunc && this.cancelRegisterFunc();
   }
 
   public getControlled = (props: ChildProps) => {

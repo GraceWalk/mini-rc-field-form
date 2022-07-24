@@ -1,3 +1,4 @@
+import { Values } from "async-validator";
 import { useRef } from "react";
 import {
   FieldEntity,
@@ -7,6 +8,7 @@ import {
   RuleError,
   Store,
   StoreValue,
+  ValidateErrorEntity,
   ValidateOptions,
 } from "./interface";
 import { allPromiseFinish } from "./utils/asyncUtil";
@@ -46,9 +48,15 @@ export type ValuedNotifyInfo = NotifyInfo & {
   store: Store;
 };
 
+export interface Callbacks {
+  onFinish?: (values: Values) => void;
+  onFinishFailed?: (errorInfo: ValidateErrorEntity) => void;
+}
+
 class FormStore {
   private store: Store = {};
   private fieldEntities: FieldEntity[] = [];
+  private callbacks: Callbacks = {};
 
   // 对外暴露 API
   public getForm = (): FormInstance => ({
@@ -58,10 +66,25 @@ class FormStore {
     setFieldsValue: this.setFieldsValue,
     dispatch: this.dispatch,
     registerField: this.registerField,
+    setCallbacks: this.setCallbacks,
+    submit: this.submit,
   });
 
   private registerField = (entity: FieldEntity) => {
     this.fieldEntities.push(entity);
+
+    // 销毁 Field 回调函数
+    return () => {
+      this.fieldEntities = this.fieldEntities.filter((item) => item !== entity);
+      const fieldName = entity.props.name;
+      if (fieldName) {
+        delete this.store[fieldName];
+      }
+    };
+  };
+
+  private setCallbacks = (callbacks: Callbacks) => {
+    this.callbacks = callbacks;
   };
 
   private getFieldValue = (name: NamePath) => {
@@ -145,7 +168,7 @@ class FormStore {
       }
 
       // 2. 如果触发校验的 field 不是当前 field，直接跳过
-      if (name !== field.props.name) {
+      if (name && name !== field.props.name) {
         return;
       }
 
@@ -201,9 +224,37 @@ class FormStore {
           type: "validateFinish",
         });
       });
+
+    // 6. 返回校验结果，供 submit 或者用户自行调用 this.validateFields() 时进行后续操作
+    const returnPromise = summaryPromise
+      .then(() => {
+        return Promise.resolve(this.getFieldsValue());
+      })
+      .catch((results: { name: NamePath; errors: string[] }[]) => {
+        const errorList = results.filter(
+          (result) => result && result.errors.length
+        );
+        return Promise.reject({
+          values: this.getFieldsValue(),
+          errorFields: errorList,
+        });
+      });
+
+    return returnPromise;
   };
 
-  private submit = () => {};
+  // 表单提交
+  private submit = () => {
+    this.validateFields()
+      .then((res) => {
+        const { onFinish } = this.callbacks;
+        onFinish && onFinish(res);
+      })
+      .catch((errors) => {
+        const { onFinishFailed } = this.callbacks;
+        onFinishFailed && onFinishFailed(errors);
+      });
+  };
 }
 
 export default function useForm(formInstance?: FormInstance) {

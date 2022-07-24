@@ -1,16 +1,20 @@
 import React from "react";
 import FieldContext from "./FieldContext";
-import { FormInstance, ValidateErrorEntity } from "./interface";
-import useForm from "./useForm";
+import { FormInstance } from "./interface";
+import useForm, { Callbacks } from "./useForm";
 
-export interface FormProps {
+export type FormProps = {
   form?: FormInstance;
   children?: React.ReactNode;
-  onFinish?: () => (values: any) => void;
-  onFinishFailed?: (errorInfo: ValidateErrorEntity) => void;
-}
+} & Callbacks;
 
-export default function Form({ form, children, ...restProps }: FormProps) {
+export default function Form({
+  form,
+  children,
+  onFinish,
+  onFinishFailed,
+  ...restProps
+}: FormProps) {
   // 1. 创建实例
   const [formInstance] = useForm(form);
 
@@ -20,6 +24,13 @@ export default function Form({ form, children, ...restProps }: FormProps) {
       {children}
     </FieldContext.Provider>
   );
+
+  // 3. 存储提交表单后的回调
+  const { setCallbacks } = formInstance;
+  setCallbacks({
+    onFinish,
+    onFinishFailed,
+  });
 
   return (
     <form
