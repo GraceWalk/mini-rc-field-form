@@ -7,12 +7,20 @@ const passwordRules = { required: true, message: "请输入密码！" };
 export default () => {
   const [form] = useForm();
 
+  const onFinish = (res: any) => {
+    console.log("表单提交: ", res);
+  };
+
+  const onFinishFailed = (errors: any) => {
+    console.log("表单提交失败: ", errors);
+  };
+
   return (
     <Form
       form={form}
       // preserve={false}
-      // onFinish={onFinish}
-      // onFinishFailed={onFinishFailed}
+      onFinish={onFinish}
+      onFinishFailed={onFinishFailed}
     >
       <Field name="name" rules={[nameRules]}>
         <Input placeholder="Username" />
@@ -37,7 +45,7 @@ export default () => {
           ) : null;
         }}
       </Field>
-      {/* <button onClick={() => form.submit()}>submit</button> */}
+      <button type="submit">submit</button>
     </Form>
   );
 };
