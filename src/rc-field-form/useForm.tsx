@@ -79,6 +79,7 @@ class FormStore {
       const fieldName = entity.props.name;
       if (fieldName) {
         delete this.store[fieldName];
+        this.triggerDependenciesUpdate(this.store, [fieldName]);
       }
     };
   };
@@ -111,6 +112,46 @@ class FormStore {
     return this.fieldEntities;
   };
 
+  private getDependencyChildrenFields = (rootPath: NamePath) => {
+    const dependenciesToFields: {
+      [k: string]: FieldEntity[];
+    } = {};
+    const childrenFields: NamePath[] = [];
+
+    // 生成单个依赖字段到对应 Field 的表，即 { 依赖字段：对应的 Field }
+    this.getFieldEntities().forEach((field, i) => {
+      const { dependencies } = field.props;
+      if (dependencies?.length) {
+        dependencies.forEach((dep) => {
+          if (!dependenciesToFields[dep]) {
+            dependenciesToFields[dep] = [field];
+          } else {
+            dependenciesToFields[dep].push(field);
+          }
+        });
+      }
+    });
+
+    // 遍历找到所有需要更新的 Field
+    const fillChildren = (depName: NamePath) => {
+      const fields = dependenciesToFields[depName];
+      fields?.length &&
+        fields.forEach((field) => {
+          const name = field.props.name;
+          if (name) {
+            childrenFields.push(name);
+            // 重点在这里，如果有别的 field 依赖这个依赖项，那么父亲依赖变化时，别的依赖项也要改变
+            fillChildren(name);
+          }
+        });
+    };
+
+    // 开始递归查找
+    fillChildren(rootPath);
+
+    return childrenFields;
+  };
+
   private notifyObservers = (
     prevStore: Store,
     name: NamePath[],
@@ -120,6 +161,7 @@ class FormStore {
       ...info,
       store: this.getFieldsValue(),
     };
+
     this.getFieldEntities().forEach(({ onStoreChange }) => {
       onStoreChange(prevStore, name, mergedInfo);
     });
@@ -134,11 +176,26 @@ class FormStore {
       }
       case "validateField": {
         const { namePath, triggerName } = action;
-        this.validateFields(namePath, { triggerName });
+        this.validateFields([namePath], { triggerName });
         break;
       }
       default:
     }
+  };
+
+  private triggerDependenciesUpdate = (prevStore: Store, name: NamePath[]) => {
+    const childrenFields = this.getDependencyChildrenFields(name[0]);
+    // 对依赖项进行校验，比如密码和确认密码的场景，当我们输入密码后需要立即校验密码输入是否一致
+    // 官方例子见 https://ant.design/components/form-cn/#components-form-demo-register
+    if (childrenFields.length) {
+      this.validateFields(childrenFields);
+    }
+
+    this.notifyObservers(prevStore, name.concat(childrenFields), {
+      type: "dependenciesUpdate",
+    });
+
+    return childrenFields;
   };
 
   private updateValue = (name: NamePath, value: StoreValue) => {
@@ -153,12 +210,10 @@ class FormStore {
       type: "valueUpdate",
     });
     // 3. 触发依赖项更新
-    this.notifyObservers(prevStore, [name], {
-      type: "dependenciesUpdate",
-    });
+    this.triggerDependenciesUpdate(prevStore, [name]);
   };
 
-  private validateFields = (name?: NamePath, options?: ValidateOptions) => {
+  private validateFields = (names?: NamePath[], options?: ValidateOptions) => {
     const promiseList: Promise<FieldError>[] = [];
 
     this.getFieldEntities().forEach((field) => {
@@ -168,7 +223,7 @@ class FormStore {
       }
 
       // 2. 如果触发校验的 field 不是当前 field，直接跳过
-      if (name && name !== field.props.name) {
+      if (!names?.includes(field.props.name || "")) {
         return;
       }
 
